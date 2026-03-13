@@ -1,56 +1,62 @@
-require("dotenv").config()
-const { ethers } = require("ethers")
+require("dotenv").config();
+const { ethers } = require("ethers");
 
-// Import private key helper
-const { promptForKey } = require("../helpers/prompt.js")
+const provider = new ethers.InfuraProvider(
+  "sepolia",
+  process.env.INFURA_API_KEY
+);
 
-// Setup connection
-const URL = process.env.TENDERLY_RPC_URL
-const provider = new ethers.JsonRpcProvider(URL)
+// 寫入操作需要 Wallet (包含私鑰)，讀取操作只需要 Provider
+const privateKey = process.env.SENDER_PRIVATE_KEY
+console.log("Private Key Length:", privateKey?.length);
+const wallet = new ethers.Wallet(privateKey).connect(provider);
 
-// Define "Application Binary Interface"
-const ERC20_ABI = [
-  "function decimals() view returns (uint8)",
-  "function balanceOf(address) view returns (uint256)",
-  "function transfer(address to, uint amount) returns (bool)",
+const CONTRACT_ADDRESS = "0xd00b38e4c9d5a08E38260bE09640a4e9dF159DC5";
+
+// 根據剛才的投票合約定義的 ABI
+const ABI = [
+  "function candidatesCount() view returns (uint256)",
+  "function candidates(uint256) view returns (uint256 id, string name, uint256 voteCount)",
+  "function hasVoted(address) view returns (bool)",
+  "function vote(uint256 _candidateId)",
+  "event votedEvent(uint256 indexed _candidateId)"
 ];
 
-// Setup contract
-const ERC20_ADDRESS = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" // USDC Contract
-const contract = new ethers.Contract(ERC20_ADDRESS, ERC20_ABI, provider)
-
-// Define reciever
-const RECIEVER = "" // Your account address 2
+const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, wallet);
 
 async function main() {
-  const privateKey = await promptForKey()
+  console.log("--- 開始與投票合約互動 ---");
 
-  // Setup wallet
-  const wallet = new ethers.Wallet(privateKey, provider)
+  // 1. 調用 view 函式：讀取候選人總數 (免費)
+  const count = await contract.candidatesCount();
+  console.log("總候選人數:", count.toString());
 
-  // Get ERC20 balances
-  const senderBalanceBefore = await contract.balanceOf(wallet.address)
-  const recieverBalanceBefore = await contract.balanceOf(RECIEVER)
+  // 2. 調用 pure 函式：進行純計算 (免費)
+  // const sum = await contract.add(10, 5);
+  // console.log("Pure 運算結果 (10+5):", sum.toString());
 
-  // Log ERC20 balances
-  console.log(`\nReading from ${ERC20_ADDRESS}\n`)
-  console.log(`Sender balance before: ${senderBalanceBefore}\n`)
-  console.log(`Reciever balance before: ${recieverBalanceBefore}\n`)
+  // 3. 調用 mapping：檢查自己是否投過票 (免費)
+  const voted = await contract.hasVoted(wallet.address);
+  console.log("我投過票了嗎？", voted ? "是" : "否");
 
-  // Setup amount to transfer
+  if (!voted) {
+    // 4. 發送交易：進行投票 (需要付 Gas Fee)
+    console.log("正在發送投票交易...");
+    const tx = await contract.vote(1); // 假設投給 1 號 Alice
+    console.log("交易已送出，Hash:", tx.hash);
 
-  // Create transaction
+    // 等待交易上鏈 (確認收據)
+    const receipt = await tx.wait();
+    console.log("投票成功！記錄在區塊高度:", receipt.blockNumber);
+  } else {
+    console.log("因為已投過票，跳過投票交易。");
+  }
 
-  // Wait transaction
-
-  // Log transaction
-
-  // Get ERC20 balances
-  const senderBalanceAfter = await contract.balanceOf(wallet.address)
-  const recieverBalanceAfter = await contract.balanceOf(RECIEVER)
-
-  console.log(`\nBalance of sender: ${senderBalanceAfter}`)
-  console.log(`Balance of reciever: ${recieverBalanceAfter}\n`)
+  // 5. 再次讀取：查看 1 號候選人的最新票數 (免費)
+  const candidate = await contract.candidates(1);
+  console.log(`候選人 1 號: ${candidate.name}, 目前票數: ${candidate.voteCount}`);
 }
 
-main()
+main().catch((error) => {
+  console.error("發生錯誤:", error);
+});
