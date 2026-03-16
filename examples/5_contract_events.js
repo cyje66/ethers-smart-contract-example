@@ -2,7 +2,7 @@ require("dotenv").config({ path: require("path").resolve(__dirname, "../.env") }
 const { ethers } = require("ethers");
 
 const provider = new ethers.InfuraProvider("sepolia", process.env.INFURA_API_KEY);
-const CONTRACT_ADDRESS = "0xd00b38e4c9d5a08E38260bE09640a4e9dF159DC5";
+const CONTRACT_ADDRESS = "0xf9941A16Cf0E0121a276F7f3f7cF1104056Dc2Ae";
 
 const ABI = [
   "function candidates(uint256) view returns (uint256 id, string name, uint256 voteCount)",

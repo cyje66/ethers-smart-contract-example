@@ -11,7 +11,7 @@ const privateKey = process.env.SENDER_PRIVATE_KEY
 console.log("Private Key Length:", privateKey?.length);
 const wallet = new ethers.Wallet(privateKey).connect(provider);
 
-const CONTRACT_ADDRESS = "0xd00b38e4c9d5a08E38260bE09640a4e9dF159DC5";
+const CONTRACT_ADDRESS = "0xf9941A16Cf0E0121a276F7f3f7cF1104056Dc2Ae";
 
 // 根據剛才的投票合約定義的 ABI
 const ABI = [
