@@ -1,31 +1,52 @@
-require("dotenv").config()
-const { ethers } = require("ethers")
+require("dotenv").config({ path: require("path").resolve(__dirname, "../.env") });
+const { ethers } = require("ethers");
 
-// Setup connection
-const URL = `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
-const provider = new ethers.JsonRpcProvider(URL)
+const provider = new ethers.InfuraProvider("sepolia", process.env.INFURA_API_KEY);
+const CONTRACT_ADDRESS = "0xf9941A16Cf0E0121a276F7f3f7cF1104056Dc2Ae";
 
-// Define "Application Binary Interface"
-const ERC20_ABI = [
-  "function name() view returns (string)",
-  "function symbol() view returns (string)",
-  "function totalSupply() view returns (uint256)",
-  "function balanceOf(address) view returns (uint)",
-
-  "event Transfer(address indexed from, address indexed to, uint amount)"
+const ABI = [
+  "function candidates(uint256) view returns (uint256 id, string name, uint256 voteCount)",
+  "event votedEvent(uint256 indexed _candidateId)" // 必須要有這行才能解析事件
 ];
 
-// Setup contract
-const ERC20_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' // USDC Contract
-const contract = new ethers.Contract(ERC20_ADDRESS, ERC20_ABI, provider)
+// 僅查看歷史紀錄通常只需要 provider，不需要 wallet
+const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
 
-const main = async () => {
-  // Get block number
-  const block = await provider.getBlockNumber()
+async function getPastEvents() {
+  console.log("--- 正在檢索歷史投票紀錄 ---");
 
-  // Query events
-  const transferEvents = await contract.queryFilter('Transfer', block - 1, block)
-  console.log(transferEvents[0])
+  // 1. 定義過濾器 (Filter)
+  // 如果你想過濾特定的候選人，可以寫 contract.filters.votedEvent(1)
+  const filter = contract.filters.votedEvent();
+
+  // 2. 決定搜索範圍
+  // "fromBlock": 開始區塊 (例如 5000000)
+  // "toBlock": 結束區塊 (通常是 "latest")
+  // 也可以用負數代表「從現在往回推幾個區塊」，例如 -1000 代表最近 1000 個區塊
+  const startBlock = -5000000; 
+  const endBlock = "latest";
+
+  try {
+    const events = await contract.queryFilter(filter, startBlock, endBlock);
+
+    console.log(`總共找到 ${events.length} 筆投票事件：`);
+
+    // 3. 解析事件內容
+    for (const event of events) {
+      // 在 v6 中，參數存在 event.args 裡
+      const candidateId = event.args[0]; 
+      const blockNumber = event.blockNumber;
+      const txHash = event.transactionHash;
+
+      console.log(`--------------------------------`);
+      console.log(`event: ${JSON.stringify(event)}`)
+      console.log(`[區塊 ${blockNumber}] 候選人 ID: ${candidateId}`);
+      console.log(`交易 Hash: ${txHash}`);
+    }
+
+  } catch (error) {
+    console.error("檢索失敗:", error);
+  }
 }
 
-main()
+getPastEvents().catch(console.error);

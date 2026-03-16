@@ -2,8 +2,12 @@ require("dotenv").config()
 const { ethers } = require("ethers")
 
 // Setup connection
-const URL = `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
-const provider = new ethers.JsonRpcProvider(URL)
+const network = process.env.ETHEREUM_NETWORK;
+
+const provider = new ethers.InfuraProvider(
+  network,
+  process.env.INFURA_API_KEY
+);
 
 // Define "Application Binary Interface"
 const ERC20_ABI = [
@@ -30,7 +34,8 @@ async function main() {
   console.log(`Name: ${name}`)
   console.log(`Symbol: ${symbol}`)
   console.log(`Decimals: ${decimals}`)
-  console.log(`Total Supply: ${totalSupply}\n`)
+  console.log(`Total Supply: ${totalSupply}`)
+  console.log(`Total Supply Formatted: ${ethers.formatUnits(totalSupply, decimals)}\n`)
 
   // Get ERC20 balance
   const USER_ADDRESS = "0x98C23E9d8f34FEFb1B7BD6a91B7FF122F4e16F5c"
